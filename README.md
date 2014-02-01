@@ -1,4 +1,4 @@
 weblender
 =========
 
-Free, open source Blender queue in Go
+Free, open source Blender render queue in Go

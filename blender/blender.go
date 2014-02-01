@@ -20,6 +20,8 @@ var (
 	regexSaved           = regexp.MustCompile("^Saved: ([0-9a-zA-Z\\./_\\-,]+) Time: ([0-9:\\.]+)$")
 )
 
+// =================================== STRUCT =================================
+
 type Instance interface {
 	StartRendering() (chan int, chan error)
 	Progress() int
@@ -41,6 +43,8 @@ type instance struct {
 	renderer, inputFile, outputFile, time string
 }
 
+// =================================== CONSTRUCTOR ============================
+
 func New(jobId uint64, inputFile, outputFile, renderer string, start, frame int) *instance {
 	return &instance{
 		cur:        -1,
@@ -52,6 +56,8 @@ func New(jobId uint64, inputFile, outputFile, renderer string, start, frame int)
 		outputFile: outputFile,
 	}
 }
+
+// =================================== FUNCTIONS ==============================
 
 func (i *instance) StartRendering() (chan int, chan error) {
 	// Create channels
@@ -154,6 +160,7 @@ func (i *instance) render() error {
 		parts = regexSaved.FindAllStringSubmatch(line, 1)
 		if len(parts) > 0 {
 			i.mutex.Lock()
+			i.outputFile = parts[0][1]
 			i.cur = i.max
 			i.time = parts[0][2]
 			i.mutex.Unlock()

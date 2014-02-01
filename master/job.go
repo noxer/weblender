@@ -2,29 +2,40 @@ package master
 
 import ()
 
+// =================================== STRUCT =================================
+
 type job struct {
 	id         uint64
-	file       []byte
 	start, end int
-	frames     [][]byte
+	frames     []*frame
+	renderer   string
+	file       []byte
 }
 
-func (i *instance) NewJob(file []byte, start, end int) *job {
-	&job{
-		id:     <-i.jobIds,
-		file:   file,
-		start:  start,
-		end:    end,
-		frames: make([][]byte, (end-start)+1),
+// =================================== CONSTRUCTOR ============================
+
+func NewJob(id uint64, start, end int, renderer string, file []byte) *job {
+	// Create job object
+	j := &job{
+		id:       id,
+		start:    start,
+		end:      end,
+		frames:   make([]*frame, 1+end-start),
+		renderer: renderer,
+		file:     file,
 	}
+	// Create frames list
+	for i := 0; i <= end-start; i++ {
+		j.frames[i] = NewFrame(j, i)
+	}
+
+	return j
 }
+
+// =================================== GETTER =================================
 
 func (j *job) Id() uint64 {
 	return j.id
-}
-
-func (j *job) File() []byte {
-	return j.file
 }
 
 func (j *job) Start() int {
@@ -32,47 +43,78 @@ func (j *job) Start() int {
 }
 
 func (j *job) End() int {
-	return j.End()
+	return j.end
 }
 
-func (j *job) Frame(frame int) []byte {
-	return j.frames(frame)
+func (j *job) FrameCount() int {
+	return len(j.frames)
 }
 
-func (j *job) AlignedFrame(frame int) []byte {
-	return j.Frame(frame + j.Start())
-}
-
-func (j *job) SetFrame(frame int, data []byte) {
-	j.frames[frame] = data
-}
-
-func (j *job) SetAlignedFrame(frame int, data []byte) {
-	j.SetFrame(frame+j.Start(), data)
-}
-
-func (j *job) Complete() bool {
+func (j *job) CompleteFrameCount() int {
+	count := 0
 	for _, f := range j.frames {
-		if f == nil {
-			return false
+		if f.Completed() {
+			count++
 		}
 	}
-	return true
+	return count
 }
 
-func (j *job) NextMissing() int {
-	for i, f := range j.frames {
-		if f == nil {
-			return i
+func (j *job) IncompleteFrameCount() int {
+	count := 0
+	for _, f := range j.frames {
+		if !f.Completed() {
+			count++
 		}
 	}
-	return -1
+	return count
 }
 
-func (j *job) NextMissingAligned() int {
-	if m := j.NextMissing(); m < 0 {
-		return m
-	} else {
-		return m + j.Start()
+func (j *job) Frame(index int) *frame {
+	return j.frames[index]
+}
+
+func (j *job) Renderer() string {
+	return j.renderer
+}
+
+func (j *job) File() []byte {
+	return j.file
+}
+
+// =================================== FUNCTIONS ==============================
+
+func (j *job) RemoveSlave(name string) {
+	for _, f := range j.frames {
+		if !f.Completed() && f.SlaveName() == name {
+			f.Reset()
+		}
 	}
+}
+
+func (j *job) Completed() bool {
+	return j.IncompleteFrameCount() == 0
+}
+
+func (j *job) Open() bool {
+	if j.Completed() {
+		return false
+	}
+
+	for _, f := range j.frames {
+		if !f.Completed() && f.SlaveName() == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (j *job) NextFrame(slave string) *frame {
+	for _, f := range j.frames {
+		if !f.Completed() && f.SlaveName() == "" {
+			f.SetSlaveName(slave)
+			return f
+		}
+	}
+	return nil
 }
